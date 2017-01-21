@@ -1,6 +1,14 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 2
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
 const char* SSID = "Bill Wi the Science Fi";
 const char* PASSWORD = "Bill!Bill!Bill!Bill!";
 
@@ -10,6 +18,7 @@ void setup() {
 
   logWifiConnect();
   WiFi.begin(SSID, PASSWORD);
+  sensors.begin();
 
   while(WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -20,9 +29,15 @@ void setup() {
 }
 
 void loop() {
-  delay(5000);
+  delay(2000);
 
-  String postResponse = postTemp(1, random(30));
+  sensors.requestTemperatures();
+  float temp = sensors.getTempCByIndex(0);
+  Serial.print("Temp: ");
+  Serial.println(temp);
+
+  getPing();
+  String postResponse = postTemp(1, temp);
   Serial.println(postResponse);
 }
 
