@@ -1,55 +1,29 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
+#include "Node.h"
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
+#define TEMP_PIN 2
 
-#define ONE_WIRE_BUS 2
+const char* BACKEND_URL = "http://192.168.0.103:3000";
 
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
-
-const char* SSID = "Bill Wi the Science Fi";
-const char* PASSWORD = "Bill!Bill!Bill!Bill!";
+Node node(BACKEND_URL, TEMP_PIN, 0);
 
 void setup() {
   Serial.begin(115200);
   delay(100);
 
-  logWifiConnect();
-  WiFi.begin(SSID, PASSWORD);
-  sensors.begin();
-
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  logWifiSuccess();
+  String response = node.init();
+  Serial.println(response);
 }
 
 void loop() {
-  delay(2000);
+  if(node.isConnected) {
+    delay(2000);
 
-  sensors.requestTemperatures();
-  float temp = sensors.getTempCByIndex(0);
-  Serial.print("Temp: ");
-  Serial.println(temp);
-
-  getPing();
-  String postResponse = postTemp(1, temp);
-  Serial.println(postResponse);
-}
-
-void logWifiConnect() {
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(SSID);
-}
-
-void logWifiSuccess() {
-  Serial.println();
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+    float temp = node.retrieveTemp();
+    Serial.print("Temp: ");
+    Serial.println(temp);
+  
+//    node.postTemp(temp);
+  } else {
+    node.runServer();
+  }
 }
