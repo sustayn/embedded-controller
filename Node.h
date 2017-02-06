@@ -31,12 +31,19 @@ class Node
       const char* status;
       const char* error;
     };
-    
-    struct SetupRequest {
+
+    struct ConfigResponse {
+      const char* name;
+      const char* ssid;
+      const char* pass;
+    };
+    struct ConfigRequest {
+      const char* name;
       const char* ssid;
       const char* pass;
     };
     struct Config {
+      const char* name;
       const char* ssid;
       const char* pass;
     };
@@ -51,9 +58,11 @@ class Node
     String _getMacId();
     void _getConfig(Config& config);
     void _setConfig(Config& newConfig);
-    void _handleSetup();
+    void _handleGetConfig();
+    void _handlePostConfig();
     int _connectToWifi(const char*, const char*);
-    bool _deserializeSetupRequest(SetupRequest& reqBody, String& json);
+    bool _serializeConfigResponse(ConfigResponse& res, String& json);
+    bool _deserializeConfigRequest(ConfigRequest& reqBody, String& json);
     void _serializeResponse(Response& res, String& json);
 };
 

@@ -64,7 +64,8 @@ String Node::init()
     WiFi.softAP(apSSID);
     IPAddress myIP = WiFi.softAPIP();
 
-    server.on("/setup", HTTP_POST, [this]() { _handleSetup(); });
+    server.on("/config", HTTP_GET, [this]() { _handleGetConfig(); });
+    server.on("/config", HTTP_POST, [this]() { _handlePostConfig(); });
     server.begin();
     
     return String("Setting up access point with IP: " + myIP.toString());
@@ -117,24 +118,54 @@ String Node::_getMacId() {
   return macId;
 }
 
-void Node::_handleSetup() {
-  SetupRequest reqBody;
+void Node::_handleGetConfig() {
+  Config config;
+  _getConfig(config);
+  String stringified;
+
+  if(config.name && config.ssid && config.pass) {
+    ConfigResponse res;
+
+    res.name = config.name;
+    res.ssid = config.ssid;
+    res.pass = config.pass;
+
+    _serializeConfigResponse(res, stringified);
+    server.send(200, "application/json", stringified);
+  } else {
+    Response res;
+
+    res.status = "error";
+    res.error = "missing configuration values";
+
+    _serializeResponse(res, stringified);
+    server.send(404, "application/json", stringified);
+  }
+}
+
+void Node::_handlePostConfig() {
+  ConfigRequest reqBody;
   Response res;
 
   String plain = server.arg("plain");
-  _deserializeSetupRequest(reqBody, plain);
+  Serial.println(plain);
+  _deserializeConfigRequest(reqBody, plain);
   int httpCode = 200;
 
+  const char* name = reqBody.name;
   const char* ssid = reqBody.ssid;
   const char* pass = reqBody.pass;
-
-  if(ssid && pass) {
+  Serial.println(name);
+  Serial.println(ssid);
+  Serial.println(pass);
+  if(name && ssid && pass) {
     int status = _connectToWifi(ssid, pass);
-
+Serial.println(status);
     if(status > 0) {
       Config config;
       _getConfig(config);
 
+      config.name = name;
       config.ssid = ssid;
       config.pass = pass;
 
@@ -154,6 +185,7 @@ void Node::_handleSetup() {
   }
 
   String stringified;
+  Serial.println(stringified);
   _serializeResponse(res, stringified);
   server.send(httpCode, "application/json", stringified);
 
@@ -162,10 +194,22 @@ void Node::_handleSetup() {
   }
 }
 
-bool Node::_deserializeSetupRequest(SetupRequest& reqBody, String& json) {
+bool Node::_serializeConfigResponse(ConfigResponse& res, String& json) {
+  StaticJsonBuffer<256> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  if(res.name) root["name"] = res.name;
+  if(res.ssid) root["ssid"] = res.ssid;
+  if(res.pass) root["pass"] = res.pass;
+
+  root.printTo(json);
+}
+
+bool Node::_deserializeConfigRequest(ConfigRequest& reqBody, String& json) {
   StaticJsonBuffer<256> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(json);
 
+  reqBody.name = root["name"];
   reqBody.ssid = root["ssid"];
   reqBody.pass = root["pass"];
 
@@ -223,6 +267,7 @@ void Node::_getConfig(Config& config) {
   }
 
   JsonObject& configObj = jsonBuffer.parseObject(stored);
+  config.name = configObj["name"];
   config.ssid = configObj["ssid"];
   config.pass = configObj["pass"];
 
@@ -234,6 +279,7 @@ void Node::_setConfig(Config& newConfig) {
   JsonObject& root = jsonBuffer.createObject();
   char stringified[EEPROM_SIZE];
 
+  root["name"] = newConfig.name;
   root["ssid"] = newConfig.ssid;
   root["pass"] = newConfig.pass;
   root.printTo(stringified);
